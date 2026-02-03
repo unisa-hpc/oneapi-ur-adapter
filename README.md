@@ -144,5 +144,5 @@ sycl-ls --verbose
 
 ## License
 
-Specify the license that applies to the installer logic and documentation.
-UR adapter binaries remain subject to their original licenses.
+This project is licensed under the Apache License, Version 2.0.
+See the [LICENSE](LICENSE) file for details.
