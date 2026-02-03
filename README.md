@@ -12,10 +12,10 @@ and install them directly into a versioned oneAPI compiler directory.
 
 ```
 .
-├── installer.stub.sh        # Installer stub (NO payload, safe to edit)
-├── docs/                    # GitHub Pages site
-│   ├── index.html           # Download UI
-│   └── manifest.json        # Available adapters (source of truth)
+├── oneapi-ur-adapter.stub.sh   # Installer stub (NO payload, safe to edit)
+├── docs/                       # GitHub Pages site
+│   ├── index.html              # Download UI
+│   └── manifest.json           # Available adapters (source of truth)
 └── README.md
 ```
 
