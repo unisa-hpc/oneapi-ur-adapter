@@ -50,24 +50,13 @@ function releaseUrl(owner, repo, tag){
 function assetUrl(owner, repo, tag, filename){
   return `https://github.com/${owner}/${repo}/releases/download/${tag}/${encodeURIComponent(filename)}`;
 }
-
-function setOptionsKeepIfPossible(sel, values, preferred){
+function setOptions(sel, values){
   sel.innerHTML = "";
   values.forEach(v => {
-    const o = document.createElement("option");
-    o.value = v;
-    o.textContent = v;
+    const o=document.createElement("option");
+    o.value=v; o.textContent=v;
     sel.appendChild(o);
   });
-
-  // Keep previous value if still valid, else pick preferred, else first
-  if (values.includes(preferred)) {
-    sel.value = preferred;
-  } else if (values.length > 0) {
-    sel.value = values[0];
-  } else {
-    sel.value = ""; // no options
-  }
 }
 
 function getSelection(){
@@ -80,27 +69,17 @@ function getSelection(){
   };
 }
 
-// Filter items using only fields that are currently set (non-empty)
-function filterByPartial(items, s){
-  return items.filter(it =>
-    (!s.oneapi  || it.oneapi_version === s.oneapi) &&
-    (!s.vendor || it.vendor        === s.vendor) &&
-    (!s.backend|| it.backend       === s.backend) &&
-    (!s.os     || it.os            === s.os) &&
-    (!s.arch   || it.arch          === s.arch)
-  );
+function matches(item, s){
+  return item.oneapi_version === s.oneapi &&
+         item.vendor === s.vendor &&
+         item.backend === s.backend &&
+         item.os === s.os &&
+         item.arch === s.arch;
 }
 
 function update(manifest){
   const s = getSelection();
-  const items = manifest.items.filter(it =>
-    it.oneapi_version === s.oneapi &&
-    it.vendor === s.vendor &&
-    it.backend === s.backend &&
-    it.os === s.os &&
-    it.arch === s.arch
-  );
-
+  const items = manifest.items.filter(it => matches(it, s));
   const status = $("status");
 
   if (items.length !== 1){
@@ -116,7 +95,6 @@ function update(manifest){
   status.textContent = "";
   const it = items[0];
   const url = assetUrl(manifest.owner, manifest.repo, it.tag, it.filename);
-
   $("downloadBtn").href = url;
   $("releaseBtn").href = releaseUrl(manifest.owner, manifest.repo, it.tag);
 
@@ -136,70 +114,17 @@ chmod +x "${it.filename}"
 `;
 }
 
-// Recompute dropdown options based on current selection, but for each dropdown
-// we compute valid options while "ignoring" that dropdown's current value.
-// This makes each dropdown dependent on the others.
-function refreshDropdowns(manifest, changedId){
-  const items = manifest.items;
-
-  // Current values BEFORE we rewrite options (so we can try to keep them)
-  const current = getSelection();
-
-  function optionsFor(field){
-    const partial = {...current};
-
-    // Ignore the field we are computing options for:
-    if (field === "oneapi")  partial.oneapi  = "";
-    if (field === "vendor")  partial.vendor  = "";
-    if (field === "backend") partial.backend = "";
-    if (field === "os")      partial.os      = "";
-    if (field === "arch")    partial.arch    = "";
-
-    const filtered = filterByPartial(items, partial);
-
-    if (field === "oneapi")  return uniq(filtered.map(x => x.oneapi_version));
-    if (field === "vendor")  return uniq(filtered.map(x => x.vendor));
-    if (field === "backend") return uniq(filtered.map(x => x.backend));
-    if (field === "os")      return uniq(filtered.map(x => x.os));
-    if (field === "arch")    return uniq(filtered.map(x => x.arch));
-    return [];
-  }
-
-  // Compute valid options for each dropdown given the others
-  const oneapiOpts  = optionsFor("oneapi");
-  const vendorOpts  = optionsFor("vendor");
-  const backendOpts = optionsFor("backend");
-  const osOpts      = optionsFor("os");
-  const archOpts    = optionsFor("arch");
-
-  // Rewrite dropdowns, trying to keep current selection where possible
-  setOptionsKeepIfPossible($("oneapi"),  oneapiOpts,  current.oneapi);
-  setOptionsKeepIfPossible($("vendor"),  vendorOpts,  current.vendor);
-  setOptionsKeepIfPossible($("backend"), backendOpts, current.backend);
-  setOptionsKeepIfPossible($("os"),      osOpts,      current.os);
-  setOptionsKeepIfPossible($("arch"),    archOpts,    current.arch);
-
-  // After rewriting, run update()
-  update(manifest);
-}
-
 (async function main(){
   const manifest = await (await fetch("./manifest.json", {cache:"no-store"})).json();
 
-  // Initial population: start with global uniques
-  setOptionsKeepIfPossible($("oneapi"),  uniq(manifest.items.map(x => x.oneapi_version)), "");
-  setOptionsKeepIfPossible($("vendor"),  uniq(manifest.items.map(x => x.vendor)), "");
-  setOptionsKeepIfPossible($("backend"), uniq(manifest.items.map(x => x.backend)), "");
-  setOptionsKeepIfPossible($("os"),      uniq(manifest.items.map(x => x.os)), "");
-  setOptionsKeepIfPossible($("arch"),    uniq(manifest.items.map(x => x.arch)), "");
+  setOptions($("oneapi"), uniq(manifest.items.map(x => x.oneapi_version)));
+  setOptions($("vendor"), uniq(manifest.items.map(x => x.vendor)));
+  setOptions($("backend"), uniq(manifest.items.map(x => x.backend)));
+  setOptions($("os"), uniq(manifest.items.map(x => x.os)));
+  setOptions($("arch"), uniq(manifest.items.map(x => x.arch)));
 
-  // First dependency pass to constrain options
-  refreshDropdowns(manifest, null);
-
-  // On change: recompute all dropdowns to enforce dependencies
-  ["oneapi","vendor","backend","os","arch"].forEach(id => {
-    $(id).addEventListener("change", () => refreshDropdowns(manifest, id));
-  });
+  ["oneapi","vendor","backend","os","arch"].forEach(id => $(id).addEventListener("change", () => update(manifest)));
+  update(manifest);
 })();
 </script>
 </body>
