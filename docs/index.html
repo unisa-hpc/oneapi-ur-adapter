@@ -2,53 +2,130 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>oneAPI NVIDIA UR Adapter Download</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>oneAPI UR Adapters Download</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:980px;margin:40px auto;padding:0 16px}
+    .card{border:1px solid #ddd;border-radius:14px;padding:16px}
+    .grid{display:grid;grid-template-columns:1fr;gap:12px}
+    @media(min-width:860px){.grid{grid-template-columns:repeat(5,1fr)}}
+    label{font-weight:600;display:block;margin:0 0 6px}
+    select{width:100%;padding:10px;border-radius:10px;border:1px solid #bbb}
+    a.btn{display:inline-block;margin-top:12px;padding:10px 14px;border-radius:10px;border:1px solid #000;text-decoration:none}
+    pre{margin-top:12px;padding:12px;border-radius:12px;border:1px solid #ddd;overflow:auto}
+    .warn{color:#b45309;font-weight:700}
+    .muted{color:#555}
+  </style>
 </head>
-<body style="font-family:system-ui;max-width:900px;margin:40px auto;padding:0 16px;">
-  <h1>Download oneAPI NVIDIA UR Adapter Installer</h1>
-  <p>Select your oneAPI version and download the installer.</p>
+<body>
+  <h1>Download oneAPI UR Adapters</h1>
+  <p class="muted">Choose configuration and download the matching installer. Add new backends/OS/versions by editing <code>manifest.json</code> only.</p>
 
-  <label>oneAPI version:
-    <select id="oneapi"></select>
-  </label>
+  <div class="card">
+    <div class="grid">
+      <div><label for="oneapi">oneAPI</label><select id="oneapi"></select></div>
+      <div><label for="vendor">Vendor</label><select id="vendor"></select></div>
+      <div><label for="backend">Backend</label><select id="backend"></select></div>
+      <div><label for="os">OS</label><select id="os"></select></div>
+      <div><label for="arch">Arch</label><select id="arch"></select></div>
+    </div>
 
-  <p>
-    <a id="download" href="#" style="display:inline-block;padding:10px 14px;border:1px solid #000;border-radius:10px;text-decoration:none;">
-      Download
-    </a>
-  </p>
+    <div style="margin-top:10px">
+      <a id="downloadBtn" class="btn" href="#">Download</a>
+      <a id="releaseBtn" class="btn" href="#" target="_blank" rel="noreferrer">View release</a>
+      <span id="status" class="warn" style="margin-left:10px"></span>
+    </div>
 
-  <pre id="cmd" style="padding:12px;border:1px solid #ddd;border-radius:10px;overflow:auto;"></pre>
+    <pre><code id="cmd"></code></pre>
+    <p class="muted">Tip: <code>chmod +x file.sh &amp;&amp; ./file.sh --oneapi-root /opt/intel/oneapi</code></p>
+  </div>
 
 <script>
-async function main(){
-  const m = await (await fetch("./manifest.json",{cache:"no-store"})).json();
-  const sel = document.getElementById("oneapi");
-  const versions = [...new Set(m.items.map(x => x.oneapi_version))].sort();
-  versions.forEach(v => {
+const $ = (id) => document.getElementById(id);
+const uniq = (arr) => [...new Set(arr)].sort();
+
+function releaseUrl(owner, repo, tag){
+  return `https://github.com/${owner}/${repo}/releases/tag/${tag}`;
+}
+function assetUrl(owner, repo, tag, filename){
+  return `https://github.com/${owner}/${repo}/releases/download/${tag}/${encodeURIComponent(filename)}`;
+}
+function setOptions(sel, values){
+  sel.innerHTML = "";
+  values.forEach(v => {
     const o=document.createElement("option");
     o.value=v; o.textContent=v;
     sel.appendChild(o);
   });
-
-  function assetUrl(item){
-    return `https://github.com/${m.owner}/${m.repo}/releases/download/${item.tag}/${encodeURIComponent(item.filename)}`;
-  }
-  function refresh(){
-    const v = sel.value;
-    const item = m.items.find(x => x.oneapi_version === v);
-    const url = assetUrl(item);
-    document.getElementById("download").href = url;
-    document.getElementById("cmd").textContent =
-`curl -L -O "${url}"
-chmod +x "${item.filename}"
-./"${item.filename}" --oneapi-root /opt/intel/oneapi`;
-  }
-  sel.addEventListener("change", refresh);
-  refresh();
 }
-main();
+
+function getSelection(){
+  return {
+    oneapi: $("oneapi").value,
+    vendor: $("vendor").value,
+    backend: $("backend").value,
+    os: $("os").value,
+    arch: $("arch").value
+  };
+}
+
+function matches(item, s){
+  return item.oneapi_version === s.oneapi &&
+         item.vendor === s.vendor &&
+         item.backend === s.backend &&
+         item.os === s.os &&
+         item.arch === s.arch;
+}
+
+function update(manifest){
+  const s = getSelection();
+  const items = manifest.items.filter(it => matches(it, s));
+  const status = $("status");
+
+  if (items.length !== 1){
+    status.textContent = items.length === 0
+      ? "No artifact for this selection."
+      : "Selection is ambiguous (manifest has duplicates).";
+    $("downloadBtn").href = "#";
+    $("releaseBtn").href = "#";
+    $("cmd").textContent = "# No unique match";
+    return;
+  }
+
+  status.textContent = "";
+  const it = items[0];
+  const url = assetUrl(manifest.owner, manifest.repo, it.tag, it.filename);
+  $("downloadBtn").href = url;
+  $("releaseBtn").href = releaseUrl(manifest.owner, manifest.repo, it.tag);
+
+  const shaLine = it.sha256 && it.sha256 !== "PUT_SHA256_HERE"
+    ? `echo "${it.sha256}  ${it.filename}" | sha256sum -c -\n`
+    : `# (optional) add sha256 in manifest.json to enable verification\n`;
+
+  $("cmd").textContent =
+`# Download
+curl -L -O "${url}"
+
+# Verify
+${shaLine}
+# Install
+chmod +x "${it.filename}"
+./"${it.filename}" --oneapi-root /opt/intel/oneapi
+`;
+}
+
+(async function main(){
+  const manifest = await (await fetch("./manifest.json", {cache:"no-store"})).json();
+
+  setOptions($("oneapi"), uniq(manifest.items.map(x => x.oneapi_version)));
+  setOptions($("vendor"), uniq(manifest.items.map(x => x.vendor)));
+  setOptions($("backend"), uniq(manifest.items.map(x => x.backend)));
+  setOptions($("os"), uniq(manifest.items.map(x => x.os)));
+  setOptions($("arch"), uniq(manifest.items.map(x => x.arch)));
+
+  ["oneapi","vendor","backend","os","arch"].forEach(id => $(id).addEventListener("change", () => update(manifest)));
+  update(manifest);
+})();
 </script>
 </body>
 </html>

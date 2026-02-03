@@ -3,9 +3,14 @@
   "repo": "oneapi-ur-adapter",
   "items": [
     {
+      "backend": "cuda",
+      "vendor": "nvidia",
       "oneapi_version": "2025.3",
-      "tag": "v0.1.0",
-      "filename": "oneapi-ur-cuda-adapter-installer-2025.3.sh"
+      "os": "linux",
+      "arch": "x86_64",
+      "tag": "v2025.3",
+      "filename": "oneapi-ur-cuda-linux-x86_64-2025.3.sh",
+      "sha256": "8cbf18ab93bb1f2b2145aa591814778f1434e46603641f9b13f6fc70f2f531dc"
     }
   ]
 }
