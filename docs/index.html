@@ -24,7 +24,15 @@
 
     /* ── Grid ── */
     .grid{display:grid;grid-template-columns:1fr;gap:12px}
-    @media(min-width:860px){.grid{grid-template-columns:repeat(5,1fr)}}
+    @media(min-width:860px){.grid{grid-template-columns:repeat(4,1fr)}}
+
+    /* ── Vendor buttons ── */
+    .vendor-section{margin-bottom:14px;padding:10px;border:1px solid rgba(255,255,255,.2);border-radius:12px;background:rgba(255,255,255,.06)}
+    .vendor-label{display:block;margin:0 0 8px;font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#fff}
+    .vendor-toggle{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}
+    .vendor-btn{width:100%;appearance:none;border:1.5px solid #fff;background:transparent;color:#fff;border-radius:999px;padding:8px 16px;font-size:.82rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+    .vendor-btn:hover{border-color:#FF4A3B;color:#FF4A3B}
+    .vendor-btn.active{background:#FF4A3B;border-color:#FF4A3B;color:#fff}
 
     /* ── Form elements ── */
     label{font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:#cacbd2;display:block;margin:0 0 6px}
@@ -62,14 +70,21 @@
       <img src="https://uxlfoundation.org/images/uxl-color.svg" alt="UXL Foundation">
     </a>
     <h1>Download oneAPI UR Adapters</h1>
-    <p>Choose a configuration and download the matching installer. Add new backends, OS, or versions by editing <code style="background:#f4f2fa;padding:1px 5px;border-radius:4px;color:#453cbc">manifest.json</code> only.</p>
+    <p>Choose a configuration and download the matching installer.</p>
   </div>
 
   <div class="container">
     <div class="card">
+      <div class="vendor-section" aria-label="Select vendor">
+        <span class="vendor-label">Vendor</span>
+        <div class="vendor-toggle">
+          <button type="button" class="vendor-btn" data-vendor="nvidia">NVIDIA</button>
+          <button type="button" class="vendor-btn" data-vendor="amd">AMD</button>
+        </div>
+      </div>
+
       <div class="grid">
         <div><label for="oneapi">oneAPI</label><select id="oneapi"></select></div>
-        <div><label for="vendor">Vendor</label><select id="vendor"></select></div>
         <div><label for="backend">Backend</label><select id="backend"></select></div>
         <div><label for="os">OS</label><select id="os"></select></div>
         <div><label for="arch">Arch</label><select id="arch"></select></div>
@@ -82,7 +97,6 @@
       </div>
 
       <pre><code id="cmd"></code></pre>
-      <p class="muted tip">Tip: <code>chmod +x file.sh &amp;&amp; ./file.sh --oneapi-root /opt/intel/oneapi</code></p>
     </div>
   </div>
 
@@ -94,6 +108,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const uniq = (arr) => [...new Set(arr)].sort();
+let selectedVendor = "";
 
 function releaseUrl(owner, repo, tag){
   return `https://github.com/${owner}/${repo}/releases/tag/${tag}`;
@@ -110,10 +125,18 @@ function setOptions(sel, values){
   });
 }
 
+function setOptionsPreserve(sel, values){
+  const prev = sel.value;
+  setOptions(sel, values);
+  if (values.includes(prev)){
+    sel.value = prev;
+  }
+}
+
 function getSelection(){
   return {
     oneapi: $("oneapi").value,
-    vendor: $("vendor").value,
+    vendor: selectedVendor,
     backend: $("backend").value,
     os: $("os").value,
     arch: $("arch").value
@@ -165,17 +188,39 @@ chmod +x "${it.filename}"
 `;
 }
 
+function setVendor(vendor, manifest){
+  selectedVendor = vendor;
+  document.querySelectorAll(".vendor-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.vendor === vendor);
+  });
+
+  // Build vendor-specific view from all manifest items.
+  const vendorItems = manifest.items.filter(it => it.vendor === vendor);
+  setOptionsPreserve($("oneapi"), uniq(vendorItems.map(it => it.oneapi_version)));
+  setOptionsPreserve($("backend"), uniq(vendorItems.map(it => it.backend)));
+  setOptionsPreserve($("os"), uniq(vendorItems.map(it => it.os)));
+  setOptionsPreserve($("arch"), uniq(vendorItems.map(it => it.arch)));
+
+  update(manifest);
+}
+
 (async function main(){
   const manifest = await (await fetch("./manifest.json", {cache:"no-store"})).json();
 
   setOptions($("oneapi"), uniq(manifest.items.map(x => x.oneapi_version)));
-  setOptions($("vendor"), uniq(manifest.items.map(x => x.vendor)));
   setOptions($("backend"), uniq(manifest.items.map(x => x.backend)));
   setOptions($("os"), uniq(manifest.items.map(x => x.os)));
   setOptions($("arch"), uniq(manifest.items.map(x => x.arch)));
 
-  ["oneapi","vendor","backend","os","arch"].forEach(id => $(id).addEventListener("change", () => update(manifest)));
-  update(manifest);
+  document.querySelectorAll(".vendor-btn").forEach(btn => {
+    btn.addEventListener("click", () => setVendor(btn.dataset.vendor, manifest));
+  });
+
+  ["oneapi","backend","os","arch"].forEach(id => $(id).addEventListener("change", () => update(manifest)));
+
+  const vendors = uniq(manifest.items.map(x => x.vendor));
+  selectedVendor = vendors.includes("nvidia") ? "nvidia" : vendors[0];
+  setVendor(selectedVendor, manifest);
 })();
 </script>
 </body>

@@ -12,15 +12,15 @@
       "filename": "oneapi-ur-cuda-linux-x86_64-2025.3.sh",
       "sha256": "8cbf18ab93bb1f2b2145aa591814778f1434e46603641f9b13f6fc70f2f531dc"
     },
-	{
+    {
       "backend": "hip",
       "vendor": "amd",
-	  "oneapi_version": "2025.3",
+      "oneapi_version": "2025.3",
       "os": "linux",
       "arch": "x86_64",
       "tag": "v2025.3",
       "filename": "oneapi-ur-hip-linux-x86_64-2025.3.sh",
       "sha256": "ea329614f5516d6b69157480550a7f1aa965741660a3cf71e9e1d8b3af153ebc"
-	}
+    }
   ]
 }
